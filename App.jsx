@@ -163,7 +163,7 @@ export default function App() {
   if (view === "splash") return <SplashView onStart={() => setView("onboard")} />;
   if (view === "onboard") return <OnboardView existing={profile} onSave={saveProfile} />;
   if (view === "form") return <FormView initial={editIdx !== null ? entries[editIdx] : {}} usedIdxs={editIdx !== null ? usedIdxs.filter(i => i !== entries[editIdx].strength_idx) : usedIdxs} onSave={saveEntry} onCancel={() => { setEditIdx(null); setView("home"); }} />;
-  if (view === "detail" && editIdx !== null) return <DetailView entry={entries[editIdx]} onBack={() => { setEditIdx(null); setView("home"); }} onEdit={() => setView("form")} />;
+  if (view === "detail" && editIdx !== null) return <DetailView entry={entries[editIdx]} tasks={tasks} onBack={() => { setEditIdx(null); setView("home"); }} onEdit={() => setView("form")} />;
   if (view === "tasks") return <TaskBreakdownView entries={entries} tasks={tasks} onSave={(t) => { saveTasks(t); setView("tracker"); }} onBack={() => setView("home")} />;
   if (view === "tracker") return <DailyTrackerView tasks={tasks} dailyLog={dailyLog} onSave={saveDaily} onReview={() => setView("review")} onBack={() => setView("home")} />;
   if (view === "review") return <WeeklyReviewView entries={entries} tasks={tasks} dailyLog={dailyLog} reviews={weeklyReviews} onSave={(r) => { saveWeekly([...weeklyReviews, r]); setView("tracker"); }} onBack={() => setView("tracker")} />;
@@ -750,7 +750,7 @@ function StrengthSelector({ value, usedIdxs, onChange }) {
   );
 }
 
-function DetailView({ entry: e, onBack, onEdit }) {
+function DetailView({ entry: e, tasks, onBack, onEdit }) {
   const [editing, setEditing] = useState(null);
   const [editVal, setEditVal] = useState("");
 
@@ -774,11 +774,13 @@ function DetailView({ entry: e, onBack, onEdit }) {
     </div>
   );
 
+  const entryTasks = tasks?.find(t => t.entryName === e.name);
+
   return (
     <Wrap>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>→ رجوع</button>
-        <button onClick={onEdit} style={{ background: BRAND.gold, border: "none", color: BRAND.navy, borderRadius: 6, padding: "4px 14px", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>تعديل كامل</button>
+        <button onClick={onEdit} style={{ background: BRAND.gold, border: "none", color: BRAND.navy, borderRadius: 6, padding: "4px 14px", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>تعديل</button>
       </div>
       <div style={{ textAlign: "center", marginBottom: 14 }}>
         <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)" }}>{e.name}</div>
@@ -794,39 +796,40 @@ function DetailView({ entry: e, onBack, onEdit }) {
         <EditableRow label="التعامل مع شخصية تمتلكها" field="interact" value={e.interact} />
         <div style={{ margin: "8px 0", padding: "8px 12px", borderRadius: 8, background: `${BRAND.gold}10`, border: `1px dashed ${BRAND.gold}40` }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: BRAND.gold, marginBottom: 4 }}>معادلة فك الشفرة</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <Tag label="الموهبة" value={e.talent} bg="#EEEDFE" color="#534AB7" />
-            <span style={{ fontWeight: 700, color: "var(--color-text-secondary)" }}>×</span>
-            <Tag label="الاستثمار" value={e.investment} bg="#FAECE7" color="#D85A30" />
-          </div>
+          <EditableRow label="الموهبة" field="talent" value={e.talent} />
+          <EditableRow label="الاستثمار" field="investment" value={e.investment} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          <SBox l="S" v={e.s} bg="#E1F5EE" c="#0F6E56" /><SBox l="W" v={e.w} bg="#FCEBEB" c="#A32D2D" />
-          <SBox l="O" v={e.o} bg="#E1F5EE" c="#085041" /><SBox l="T" v={e.t_swot} bg="#FAEEDA" c="#854F0B" />
-        </div>
+        <EditableRow label="S — أقوى جانب" field="s" value={e.s} />
+        <EditableRow label="W — خطر داخلى" field="w" value={e.w} />
+        <EditableRow label="O — فرصة" field="o" value={e.o} />
+        <EditableRow label="T — تهديد خارجى" field="t_swot" value={e.t_swot} />
       </Sec>
 
       <Sec title="الفهم وتحليل المراجع #بإحسان" color={BRAND.gold}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          <MC label="اسم الله" value={e.allah_name} /><MC label="النبى ﷺ" value={e.prophet} />
-          <MC label="القدوة" value={e.rolemodel} /><MC label="القرآن" value={e.quran} />
-        </div>
-        <div style={{ marginTop: 6, padding: "6px 10px", borderRadius: 6, background: "#FCEBEB" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#A32D2D" }}>نحذر من: </span>
-          <span style={{ fontSize: 12, color: "#791F1F" }}>{e.warning}</span>
-        </div>
+        <EditableRow label="اسم الله" field="allah_name" value={e.allah_name} />
+        <EditableRow label="طريقة النبى ﷺ" field="prophet" value={e.prophet} />
+        <EditableRow label="القدوة من السيرة" field="rolemodel" value={e.rolemodel} />
+        <EditableRow label="القرآن الكريم" field="quran" value={e.quran} />
+        <EditableRow label="نحذر من؟" field="warning" value={e.warning} />
       </Sec>
 
       <Sec title="التحديد واختيار الهدف" color={PC[3]}>
-        <Tag label="عجلة الحياة" value={e.wheel} bg="#E1F5EE" color="#0F6E56" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, margin: "8px 0" }}>
-          <MC label="KPI الحفاظ" value={e.kpi1} /><MC label="KPI النمو" value={e.kpi2} />
-        </div>
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--color-background-info)", border: "1.5px solid var(--color-border-info)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-info)", marginBottom: 2 }}>الهدف SMART</div>
-          <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.8 }}>{e.goal}</div>
-        </div>
+        <EditableRow label="جانب عجلة الحياة" field="wheel" value={e.wheel} />
+        <EditableRow label="KPI #1 — قياس الحفاظ" field="kpi1" value={e.kpi1} />
+        <EditableRow label="KPI #2 — قياس النمو" field="kpi2" value={e.kpi2} />
+        <EditableRow label="الهدف SMART" field="goal" value={e.goal} />
       </Sec>
+
+      {entryTasks && entryTasks.subtasks.length > 0 && (
+        <Sec title="المهام المقسمة" color={BRAND.gold}>
+          {entryTasks.subtasks.map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < entryTasks.subtasks.length - 1 ? "1px solid var(--color-border-tertiary)" : "none" }}>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)", flexShrink: 0 }}>{s.day || "—"}</span>
+              <span style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{s.text}</span>
+            </div>
+          ))}
+        </Sec>
+      )}
     </Wrap>
   );
 }
@@ -921,16 +924,26 @@ function TaskBreakdownView({ entries, tasks: existingTasks, onSave, onBack }) {
 }
 
 function DailyTrackerView({ tasks, dailyLog, onSave, onReview, onBack }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const todayDate = new Date();
+  const today = todayDate.toISOString().slice(0, 10);
   const DAYS = ["الجمعة", "السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
-  const dayIdx = new Date().getDay();
+  const dayIdx = todayDate.getDay();
   const dayMap = [1, 2, 3, 4, 5, 6, 0];
   const todayName = DAYS[dayMap[dayIdx]];
   const isFriday = dayIdx === 5;
   const [viewMode, setViewMode] = useState("day");
   const [selectedDay, setSelectedDay] = useState(todayName);
 
-  const getTasksForDay = (day) => tasks.flatMap((g, gi) => g.subtasks.filter(s => s.day === day).map((s, si) => ({ ...s, goalIdx: gi, goalName: g.entryName, subIdx: g.subtasks.indexOf(s) })));
+  const fridayOffset = ((dayIdx + 2) % 7);
+  const weekDates = DAYS.map((_, i) => {
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - fridayOffset + i);
+    return d;
+  });
+  const formatShort = (d) => `${d.getDate()}/${d.getMonth() + 1}`;
+  const selectedDate = weekDates[DAYS.indexOf(selectedDay)];
+
+  const getTasksForDay = (day) => tasks.flatMap((g, gi) => g.subtasks.filter(s => s.day === day).map((s) => ({ ...s, goalIdx: gi, goalName: g.entryName, subIdx: g.subtasks.indexOf(s) })));
 
   const dayTasks = getTasksForDay(selectedDay);
   const log = dailyLog[today] || {};
@@ -953,55 +966,82 @@ function DailyTrackerView({ tasks, dailyLog, onSave, onReview, onBack }) {
 
   return (
     <Wrap>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>→ رجوع</button>
         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>المتابعة</span>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-around", padding: "14px 0", marginBottom: 10, background: "var(--color-background-secondary)", borderRadius: 12, border: "1px solid var(--color-border-tertiary)" }}>
+      <div style={{ display: "flex", justifyContent: "space-around", padding: "12px 0", marginBottom: 10, background: "var(--color-background-secondary)", borderRadius: 12, border: "1px solid var(--color-border-tertiary)" }}>
         <Stat n={pct + "%"} label="إنجاز اليوم" color={pct >= 80 ? "#0F6E56" : pct >= 50 ? BRAND.gold : PC[3]} />
         <Stat n={streak} label="أيام متتالية" color={BRAND.gold} />
       </div>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
         <button onClick={() => setViewMode("day")} style={{ flex: 1, padding: "6px 0", borderRadius: 8, border: "none", background: viewMode === "day" ? BRAND.navy : "var(--color-background-secondary)", color: viewMode === "day" ? BRAND.gold : "var(--color-text-secondary)", fontSize: 12, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>يومى</button>
         <button onClick={() => setViewMode("week")} style={{ flex: 1, padding: "6px 0", borderRadius: 8, border: "none", background: viewMode === "week" ? BRAND.navy : "var(--color-background-secondary)", color: viewMode === "week" ? BRAND.gold : "var(--color-text-secondary)", fontSize: 12, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>أسبوعى</button>
       </div>
 
+      <div style={{ display: "flex", gap: 3, marginBottom: 12 }}>
+        {DAYS.map((day, i) => {
+          const wd = weekDates[i];
+          const isToday = day === todayName;
+          const isSel = day === selectedDay;
+          const tasksCount = getTasksForDay(day).length;
+          return (
+            <div key={day} onClick={() => setSelectedDay(day)}
+              style={{ flex: 1, textAlign: "center", padding: "6px 2px", borderRadius: 8, cursor: "pointer",
+                border: isSel ? `2px solid ${BRAND.navy}` : isToday ? `1.5px solid ${BRAND.gold}` : "1px solid var(--color-border-tertiary)",
+                background: isSel ? `${BRAND.navy}12` : "var(--color-background-primary)" }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: isToday ? BRAND.gold : "var(--color-text-tertiary)" }}>{day.slice(0, 5)}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: isSel ? BRAND.navy : "var(--color-text-primary)", margin: "2px 0" }}>{wd.getDate()}</div>
+              <div style={{ fontSize: 8, color: "var(--color-text-tertiary)" }}>{wd.getMonth() + 1}/{wd.getFullYear().toString().slice(2)}</div>
+              {tasksCount > 0 && <div style={{ width: 5, height: 5, borderRadius: "50%", background: isToday ? BRAND.gold : BRAND.navy, margin: "3px auto 0" }} />}
+            </div>
+          );
+        })}
+      </div>
+
       {viewMode === "week" ? (
         <div style={{ marginBottom: 12 }}>
-          {DAYS.map(day => {
+          {DAYS.map((day, di) => {
             const dt = getTasksForDay(day);
             const isToday = day === todayName;
+            const wd = weekDates[di];
+            if (dt.length === 0) return null;
             return (
               <div key={day} style={{ marginBottom: 6, borderRadius: 10, border: isToday ? `2px solid ${BRAND.gold}` : "1px solid var(--color-border-tertiary)", background: "var(--color-background-secondary)", overflow: "hidden" }}>
-                <div onClick={() => { setSelectedDay(day); setViewMode("day"); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid var(--color-border-tertiary)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: isToday ? BRAND.gold : "var(--color-text-primary)" }}>{day}</span>
-                    {isToday && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: BRAND.gold, color: BRAND.navy, fontWeight: 600 }}>اليوم</span>}
+                    <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatShort(wd)}</span>
+                    {isToday && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 8, background: BRAND.gold, color: BRAND.navy, fontWeight: 600 }}>اليوم</span>}
                   </div>
-                  <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{dt.length} مهام</span>
+                  <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{dt.length} مهام</span>
                 </div>
-                {dt.length > 0 && (
-                  <div style={{ padding: "0 12px 8px" }}>
-                    {dt.map((t, i) => (
-                      <div key={i} style={{ fontSize: 11, color: "var(--color-text-secondary)", padding: "2px 0", borderTop: i > 0 ? "1px solid var(--color-border-tertiary)" : "none" }}>• {t.text}</div>
-                    ))}
-                  </div>
-                )}
+                <div style={{ padding: "4px 12px 8px" }}>
+                  {dt.map((t, i) => {
+                    const key = `${t.goalIdx}-${t.subIdx}`;
+                    const checked = isToday ? !!log[key] : false;
+                    return (
+                      <div key={i} onClick={() => { if (isToday) toggle(key); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderTop: i > 0 ? "1px solid var(--color-border-tertiary)" : "none", cursor: isToday ? "pointer" : "default" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: 4, border: checked ? "none" : "1.5px solid var(--color-border-secondary)", background: checked ? "#0F6E56" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", flexShrink: 0 }}>{checked ? "✓" : ""}</div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-primary)", textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.6 : 1 }}>{t.text}</span>
+                          <span style={{ fontSize: 9, color: "var(--color-text-tertiary)", marginRight: 6 }}>{t.goalName?.split(" - ")[1] || ""}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", gap: 4, marginBottom: 12, overflowX: "auto" }}>
-            {DAYS.map(day => (
-              <button key={day} onClick={() => setSelectedDay(day)}
-                style={{ padding: "8px 10px", borderRadius: 8, border: selectedDay === day ? `2px solid ${BRAND.navy}` : "1px solid var(--color-border-tertiary)", background: selectedDay === day ? `${BRAND.navy}12` : day === todayName ? `${BRAND.gold}10` : "var(--color-background-primary)", color: selectedDay === day ? BRAND.navy : "var(--color-text-secondary)", fontSize: 11, fontFamily: "inherit", cursor: "pointer", fontWeight: selectedDay === day ? 700 : 400, whiteSpace: "nowrap", flexShrink: 0 }}>
-                {day} {day === todayName ? "●" : ""}
-              </button>
-            ))}
+          <div style={{ textAlign: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{selectedDay} — {selectedDate ? formatShort(selectedDate) : ""}</span>
           </div>
 
           {dayTasks.length === 0 && (
