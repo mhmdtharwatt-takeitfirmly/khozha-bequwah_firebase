@@ -13,7 +13,7 @@ const GALLUP_34 = [
   { name: "Arranger - المنظّم", domain: "التنفيذ" },
   { name: "Belief - المبادئى", domain: "التنفيذ" },
   { name: "Command - القيادى", domain: "التأثير" },
-  { name: "Communication - التواصل", domain: "التأثير" },
+  { name: "Communication - المتواصل", domain: "التأثير" },
   { name: "Competition - التنافسى", domain: "التأثير" },
   { name: "Connectedness - الترابطى", domain: "بناء العلاقات" },
   { name: "Consistency - المستمر", domain: "التنفيذ" },
@@ -31,7 +31,7 @@ const GALLUP_34 = [
   { name: "Input - الجامع", domain: "التفكير الاستراتيجى" },
   { name: "Intellection - المفكّر", domain: "التفكير الاستراتيجى" },
   { name: "Learner - المتعلّم", domain: "التفكير الاستراتيجى" },
-  { name: "Maximizer - المعظّم", domain: "التأثير" },
+  { name: "Maximizer - المُحسِّن", domain: "التأثير" },
   { name: "Positivity - الإيجابى", domain: "بناء العلاقات" },
   { name: "Relator - العلاقاتى", domain: "بناء العلاقات" },
   { name: "Responsibility - المسؤولية", domain: "التنفيذ" },
@@ -163,7 +163,7 @@ export default function App() {
   if (view === "splash") return <SplashView onStart={() => setView("onboard")} />;
   if (view === "onboard") return <OnboardView existing={profile} onSave={saveProfile} />;
   if (view === "form") return <FormView initial={editIdx !== null ? entries[editIdx] : {}} usedIdxs={editIdx !== null ? usedIdxs.filter(i => i !== entries[editIdx].strength_idx) : usedIdxs} onSave={saveEntry} onCancel={() => { setEditIdx(null); setView("home"); }} />;
-  if (view === "detail" && editIdx !== null) return <DetailView entry={entries[editIdx]} tasks={tasks} onBack={() => { setEditIdx(null); setView("home"); }} onEdit={() => setView("form")} />;
+  if (view === "detail" && editIdx !== null) return <DetailView entry={entries[editIdx]} tasks={tasks} onSaveTasks={saveTasks} entries={entries} onBack={() => { setEditIdx(null); setView("home"); }} onEdit={() => setView("form")} />;
   if (view === "tasks") return <TaskBreakdownView entries={entries} tasks={tasks} onSave={(t) => { saveTasks(t); setView("tracker"); }} onBack={() => setView("home")} />;
   if (view === "tracker") return <DailyTrackerView tasks={tasks} dailyLog={dailyLog} onSave={saveDaily} onReview={() => setView("review")} onBack={() => setView("home")} />;
   if (view === "review") return <WeeklyReviewView entries={entries} tasks={tasks} dailyLog={dailyLog} reviews={weeklyReviews} onSave={(r) => { saveWeekly([...weeklyReviews, r]); setView("tracker"); }} onBack={() => setView("tracker")} />;
@@ -750,31 +750,72 @@ function StrengthSelector({ value, usedIdxs, onChange }) {
   );
 }
 
-function DetailView({ entry: e, tasks, onBack, onEdit }) {
+function DetailView({ entry: e, tasks, onSaveTasks, entries, onBack, onEdit }) {
   const [editing, setEditing] = useState(null);
   const [editVal, setEditVal] = useState("");
+  const [newTask, setNewTask] = useState("");
 
   const startEdit = (field, val) => { setEditing(field); setEditVal(val || ""); };
   const saveEdit = () => { if (editing) { e[editing] = editVal; setEditing(null); } };
 
-  const EditableRow = ({ label, field, value }) => (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 1 }}>{label}</div>
-        <button onClick={() => startEdit(field, value)} style={{ background: "none", border: "none", color: BRAND.gold, cursor: "pointer", fontSize: 10, fontFamily: "inherit", padding: 0 }}>✎</button>
-      </div>
-      {editing === field ? (
-        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-          <textarea value={editVal} onChange={ev => setEditVal(ev.target.value)} rows={2} style={{ flex: 1, borderRadius: 6, border: `1.5px solid ${BRAND.gold}`, padding: "6px 8px", fontSize: 12, fontFamily: "inherit", direction: "rtl", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", lineHeight: 1.6 }} />
-          <button onClick={saveEdit} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: BRAND.navy, color: BRAND.gold, fontSize: 10, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", alignSelf: "flex-start" }}>حفظ</button>
-        </div>
-      ) : (
-        <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7 }}>{value}</div>
-      )}
-    </div>
+  const Pen = ({ field, value }) => (
+    <button onClick={() => startEdit(field, value)} style={{ background: "none", border: "none", color: BRAND.gold, cursor: "pointer", fontSize: 10, fontFamily: "inherit", padding: 0, position: "absolute", top: 4, left: 4 }}>✎</button>
   );
 
-  const entryTasks = tasks?.find(t => t.entryName === e.name);
+  const EditOverlay = ({ field }) => editing === field ? (
+    <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+      <textarea value={editVal} onChange={ev => setEditVal(ev.target.value)} rows={2} style={{ flex: 1, borderRadius: 6, border: `1.5px solid ${BRAND.gold}`, padding: "6px 8px", fontSize: 12, fontFamily: "inherit", direction: "rtl", background: "var(--color-background-primary)", color: "var(--color-text-primary)", resize: "vertical", lineHeight: 1.6 }} />
+      <button onClick={saveEdit} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: BRAND.navy, color: BRAND.gold, fontSize: 10, fontWeight: 600, fontFamily: "inherit", cursor: "pointer", alignSelf: "flex-start" }}>حفظ</button>
+    </div>
+  ) : null;
+
+  const DAYS = ["الجمعة", "السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+  const entryTaskIdx = tasks?.findIndex(t => t.entryName === e.name);
+  const entryTasks = entryTaskIdx >= 0 ? tasks[entryTaskIdx] : null;
+
+  const addSubtask = (text) => {
+    if (!text.trim() || !onSaveTasks) return;
+    let updated = [...(tasks || [])];
+    if (entryTaskIdx >= 0) {
+      updated[entryTaskIdx] = { ...updated[entryTaskIdx], subtasks: [...updated[entryTaskIdx].subtasks, { text: text.trim(), day: "" }] };
+    } else {
+      updated.push({ entryName: e.name, goal: e.goal, wheel: e.wheel, subtasks: [{ text: text.trim(), day: "" }] });
+    }
+    onSaveTasks(updated);
+    setNewTask("");
+  };
+
+  const removeSubtask = (idx) => {
+    if (entryTaskIdx < 0) return;
+    let updated = [...tasks];
+    updated[entryTaskIdx] = { ...updated[entryTaskIdx], subtasks: updated[entryTaskIdx].subtasks.filter((_, i) => i !== idx) };
+    onSaveTasks(updated);
+  };
+
+  const setSubDay = (idx, day) => {
+    if (entryTaskIdx < 0) return;
+    let updated = [...tasks];
+    const subs = [...updated[entryTaskIdx].subtasks];
+    subs[idx] = { ...subs[idx], day };
+    updated[entryTaskIdx] = { ...updated[entryTaskIdx], subtasks: subs };
+    onSaveTasks(updated);
+  };
+
+  const suggestTasks = () => {
+    const suggestions = [
+      `مراجعة تقدم هدف: ${e.goal?.slice(0, 30)}`,
+      `تخصيص 30 دقيقة للعمل على: ${e.name?.split(" - ")[1] || e.name}`,
+      `قياس KPI مرتبط بـ ${e.wheel}`,
+      `تطبيق عملى لنقطة قوة ${e.name?.split(" - ")[1] || e.name}`,
+    ];
+    let updated = [...(tasks || [])];
+    if (entryTaskIdx >= 0) {
+      updated[entryTaskIdx] = { ...updated[entryTaskIdx], subtasks: [...updated[entryTaskIdx].subtasks, ...suggestions.map(s => ({ text: s, day: "" }))] };
+    } else {
+      updated.push({ entryName: e.name, goal: e.goal, wheel: e.wheel, subtasks: suggestions.map(s => ({ text: s, day: "" })) });
+    }
+    onSaveTasks(updated);
+  };
 
   return (
     <Wrap>
@@ -791,60 +832,113 @@ function DetailView({ entry: e, tasks, onBack, onEdit }) {
       </div>
 
       <Sec title="التعرف على نقطة القوة" color={PC[1]}>
-        <EditableRow label="المفهوم العام" field="concept" value={e.concept} />
-        <EditableRow label="التقديم للآخرين" field="present" value={e.present} />
-        <EditableRow label="التعامل مع شخصية تمتلكها" field="interact" value={e.interact} />
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <Pen field="concept" value={e.concept} />
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 1 }}>المفهوم العام</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7 }}>{e.concept}</div>
+          <EditOverlay field="concept" />
+        </div>
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <Pen field="present" value={e.present} />
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 1 }}>التقديم للآخرين</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7 }}>{e.present}</div>
+          <EditOverlay field="present" />
+        </div>
+        <div style={{ position: "relative", marginBottom: 8 }}>
+          <Pen field="interact" value={e.interact} />
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", marginBottom: 1 }}>التعامل مع شخصية تمتلكها</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.7 }}>{e.interact}</div>
+          <EditOverlay field="interact" />
+        </div>
+
         <div style={{ margin: "8px 0", padding: "8px 12px", borderRadius: 8, background: `${BRAND.gold}10`, border: `1px dashed ${BRAND.gold}40` }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: BRAND.gold, marginBottom: 4 }}>معادلة فك الشفرة</div>
-          <EditableRow label="الموهبة" field="talent" value={e.talent} />
-          <EditableRow label="الاستثمار" field="investment" value={e.investment} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ position: "relative", display: "inline-block", padding: "3px 10px", borderRadius: 16, background: "#EEEDFE", fontSize: 12, fontWeight: 500, color: "#534AB7" }}>
+              الموهبة: {e.talent}<Pen field="talent" value={e.talent} />
+            </span>
+            <span style={{ fontWeight: 700, color: "var(--color-text-secondary)" }}>×</span>
+            <span style={{ position: "relative", display: "inline-block", padding: "3px 10px", borderRadius: 16, background: "#FAECE7", fontSize: 12, fontWeight: 500, color: "#D85A30" }}>
+              الاستثمار: {e.investment}<Pen field="investment" value={e.investment} />
+            </span>
+          </div>
+          <EditOverlay field="talent" />
+          <EditOverlay field="investment" />
         </div>
-        <EditableRow label="S — أقوى جانب" field="s" value={e.s} />
-        <EditableRow label="W — خطر داخلى" field="w" value={e.w} />
-        <EditableRow label="O — فرصة" field="o" value={e.o} />
-        <EditableRow label="T — تهديد خارجى" field="t_swot" value={e.t_swot} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "#E1F5EE" }}><Pen field="s" value={e.s} /><span style={{ fontWeight: 700, fontSize: 13, color: "#0F6E56", marginLeft: 4 }}>S</span><span style={{ fontSize: 11, color: "#0F6E56", lineHeight: 1.5 }}> {e.s}</span><EditOverlay field="s" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "#FCEBEB" }}><Pen field="w" value={e.w} /><span style={{ fontWeight: 700, fontSize: 13, color: "#A32D2D", marginLeft: 4 }}>W</span><span style={{ fontSize: 11, color: "#A32D2D", lineHeight: 1.5 }}> {e.w}</span><EditOverlay field="w" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "#E1F5EE" }}><Pen field="o" value={e.o} /><span style={{ fontWeight: 700, fontSize: 13, color: "#085041", marginLeft: 4 }}>O</span><span style={{ fontSize: 11, color: "#085041", lineHeight: 1.5 }}> {e.o}</span><EditOverlay field="o" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "#FAEEDA" }}><Pen field="t_swot" value={e.t_swot} /><span style={{ fontWeight: 700, fontSize: 13, color: "#854F0B", marginLeft: 4 }}>T</span><span style={{ fontSize: 11, color: "#854F0B", lineHeight: 1.5 }}> {e.t_swot}</span><EditOverlay field="t_swot" /></div>
+        </div>
       </Sec>
 
       <Sec title="الفهم وتحليل المراجع #بإحسان" color={BRAND.gold}>
-        <EditableRow label="اسم الله" field="allah_name" value={e.allah_name} />
-        <EditableRow label="طريقة النبى ﷺ" field="prophet" value={e.prophet} />
-        <EditableRow label="القدوة من السيرة" field="rolemodel" value={e.rolemodel} />
-        <EditableRow label="القرآن الكريم" field="quran" value={e.quran} />
-        <EditableRow label="نحذر من؟" field="warning" value={e.warning} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="allah_name" value={e.allah_name} /><div style={{ fontSize: 10, fontWeight: 600, color: BRAND.gold, marginBottom: 1 }}>اسم الله</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.allah_name}</div><EditOverlay field="allah_name" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="prophet" value={e.prophet} /><div style={{ fontSize: 10, fontWeight: 600, color: BRAND.gold, marginBottom: 1 }}>النبى ﷺ</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.prophet}</div><EditOverlay field="prophet" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="rolemodel" value={e.rolemodel} /><div style={{ fontSize: 10, fontWeight: 600, color: BRAND.gold, marginBottom: 1 }}>القدوة</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.rolemodel}</div><EditOverlay field="rolemodel" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="quran" value={e.quran} /><div style={{ fontSize: 10, fontWeight: 600, color: BRAND.gold, marginBottom: 1 }}>القرآن</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.quran}</div><EditOverlay field="quran" /></div>
+        </div>
+        <div style={{ position: "relative", marginTop: 6, padding: "6px 10px", borderRadius: 6, background: "#FCEBEB" }}>
+          <Pen field="warning" value={e.warning} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#A32D2D" }}>نحذر من: </span>
+          <span style={{ fontSize: 12, color: "#791F1F" }}>{e.warning}</span>
+          <EditOverlay field="warning" />
+        </div>
       </Sec>
 
       <Sec title="التحديد واختيار الهدف" color={PC[3]}>
-        <EditableRow label="جانب عجلة الحياة" field="wheel" value={e.wheel} />
-        <EditableRow label="KPI #1 — قياس الحفاظ" field="kpi1" value={e.kpi1} />
-        <EditableRow label="KPI #2 — قياس النمو" field="kpi2" value={e.kpi2} />
-        <EditableRow label="الهدف SMART" field="goal" value={e.goal} />
+        <div style={{ position: "relative", display: "inline-block", marginBottom: 8 }}>
+          <Pen field="wheel" value={e.wheel} />
+          <Tag label="عجلة الحياة" value={e.wheel} bg="#E1F5EE" color="#0F6E56" />
+          <EditOverlay field="wheel" />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, margin: "8px 0" }}>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="kpi1" value={e.kpi1} /><div style={{ fontSize: 10, fontWeight: 600, color: PC[3], marginBottom: 1 }}>KPI الحفاظ</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.kpi1}</div><EditOverlay field="kpi1" /></div>
+          <div style={{ position: "relative", padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}><Pen field="kpi2" value={e.kpi2} /><div style={{ fontSize: 10, fontWeight: 600, color: PC[3], marginBottom: 1 }}>KPI النمو</div><div style={{ fontSize: 11, color: "var(--color-text-primary)", lineHeight: 1.5 }}>{e.kpi2}</div><EditOverlay field="kpi2" /></div>
+        </div>
+        <div style={{ position: "relative", padding: "10px 12px", borderRadius: 8, background: "var(--color-background-info)", border: "1.5px solid var(--color-border-info)" }}>
+          <Pen field="goal" value={e.goal} />
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-info)", marginBottom: 2 }}>الهدف SMART</div>
+          <div style={{ fontSize: 13, color: "var(--color-text-primary)", lineHeight: 1.8 }}>{e.goal}</div>
+          <EditOverlay field="goal" />
+        </div>
       </Sec>
 
-      {entryTasks && entryTasks.subtasks.length > 0 && (
-        <Sec title="المهام المقسمة" color={BRAND.gold}>
-          {entryTasks.subtasks.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < entryTasks.subtasks.length - 1 ? "1px solid var(--color-border-tertiary)" : "none" }}>
-              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)", flexShrink: 0 }}>{s.day || "—"}</span>
-              <span style={{ fontSize: 12, color: "var(--color-text-primary)" }}>{s.text}</span>
-            </div>
-          ))}
-        </Sec>
-      )}
+      <Sec title="تقسيم الهدف لمهام" color={BRAND.gold}>
+        {entryTasks && entryTasks.subtasks.length > 0 && entryTasks.subtasks.map((s, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}>
+            <div style={{ flex: 1, fontSize: 12, color: "var(--color-text-primary)" }}>{s.text}</div>
+            <select value={s.day} onChange={ev => setSubDay(i, ev.target.value)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--color-border-tertiary)", fontFamily: "inherit", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+              <option value="">يوم؟</option>
+              {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <button onClick={() => removeSubtask(i)} style={{ background: "none", border: "none", color: "#A32D2D", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <input value={newTask} onChange={ev => setNewTask(ev.target.value)} placeholder="اكتب مهمة جديدة..." onKeyDown={ev => ev.key === "Enter" && addSubtask(newTask)}
+            style={{ flex: 1, borderRadius: 8, border: "1px solid var(--color-border-tertiary)", padding: "8px 10px", fontSize: 12, fontFamily: "inherit", direction: "rtl", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+          <button onClick={() => addSubtask(newTask)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: BRAND.navy, color: BRAND.gold, fontSize: 11, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>إضافة</button>
+        </div>
+        <button onClick={suggestTasks} style={{ width: "100%", marginTop: 6, padding: "6px 0", borderRadius: 8, border: `1px dashed ${BRAND.gold}`, background: "transparent", color: BRAND.gold, fontSize: 10, fontFamily: "inherit", cursor: "pointer" }}>اقتراح مهام تلقائية</button>
+      </Sec>
     </Wrap>
   );
 }
 
 function TaskBreakdownView({ entries, tasks: existingTasks, onSave, onBack }) {
-  const [tasks, setTasks] = useState(existingTasks.length > 0 ? existingTasks : entries.map(e => ({ entryName: e.name, goal: e.goal, wheel: e.wheel, subtasks: [] })));
-  const [activeGoal, setActiveGoal] = useState(0);
+  const [tasks, setTasks] = useState(existingTasks.length > 0 ? existingTasks : entries.map(e => ({ entryName: e.name, goal: e.goal, wheel: e.wheel, domain: e.domain, subtasks: [] })));
+  const [activeGoal, setActiveGoal] = useState(null);
   const [newTask, setNewTask] = useState("");
-  const [useAI, setUseAI] = useState(false);
 
-  const current = tasks[activeGoal];
-  if (!current) return <Wrap><p style={{ textAlign: "center", padding: 40 }}>لا توجد أهداف</p></Wrap>;
+  const domains = ["التنفيذ", "التأثير", "بناء العلاقات", "التفكير الاستراتيجى"];
+  const current = activeGoal !== null ? tasks[activeGoal] : null;
 
   const addTask = (text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || activeGoal === null) return;
     const updated = [...tasks];
     updated[activeGoal] = { ...current, subtasks: [...current.subtasks, { text: text.trim(), day: "" }] };
     setTasks(updated);
@@ -869,11 +963,12 @@ function TaskBreakdownView({ entries, tasks: existingTasks, onSave, onBack }) {
   const dayCount = (day) => tasks.flatMap(t => t.subtasks).filter(s => s.day === day).length;
 
   const suggestTasks = () => {
+    if (!current) return;
     const suggestions = [
-      `مراجعة تقدم هدف: ${current.goal?.slice(0, 30)}`,
-      `تخصيص 30 دقيقة للعمل على: ${current.entryName}`,
-      `قياس KPI مرتبط بـ ${current.wheel}`,
-      `تطبيق عملى لنقطة قوة ${current.entryName}`,
+      `مراجعة تقدم: ${current.goal?.slice(0, 25)}`,
+      `30 دقيقة عمل على: ${current.entryName?.split(" - ")[1] || ""}`,
+      `قياس KPI: ${current.wheel}`,
+      `تطبيق عملى: ${current.entryName?.split(" - ")[1] || ""}`,
     ];
     const updated = [...tasks];
     updated[activeGoal] = { ...current, subtasks: [...current.subtasks, ...suggestions.map(s => ({ text: s, day: "" }))] };
@@ -884,39 +979,61 @@ function TaskBreakdownView({ entries, tasks: existingTasks, onSave, onBack }) {
     <Wrap>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>→ رجوع</button>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>المرحلة الرابعة: تقسيم الأهداف</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--color-text-primary)" }}>تقسيم الأهداف لمهام</span>
       </div>
 
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 12, paddingBottom: 4 }}>
-        {tasks.map((t, i) => (
-          <button key={i} onClick={() => setActiveGoal(i)} style={{ padding: "6px 12px", borderRadius: 8, border: activeGoal === i ? `2px solid ${BRAND.navy}` : "1px solid var(--color-border-tertiary)", background: activeGoal === i ? `${BRAND.navy}12` : "var(--color-background-primary)", color: "var(--color-text-primary)", fontSize: 11, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap", fontWeight: activeGoal === i ? 600 : 400 }}>
-            {t.entryName?.split(" - ")[1] || t.entryName?.slice(0, 15)} ({t.subtasks.length})
-          </button>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
+        {domains.map(domain => {
+          const domainTasks = tasks.map((t, i) => ({ ...t, idx: i })).filter(t => {
+            const entry = entries.find(en => en.name === t.entryName);
+            return (entry?.domain || t.domain) === domain;
+          });
+          if (domainTasks.length === 0) return null;
+          return (
+            <div key={domain} style={{ borderRadius: 8, border: `1px solid ${DOMAIN_COLORS[domain]}30`, overflow: "hidden" }}>
+              <div style={{ padding: "4px 8px", background: DOMAIN_COLORS[domain], color: "#fff", fontSize: 10, fontWeight: 600, textAlign: "center" }}>{domain}</div>
+              {domainTasks.map(t => {
+                const isActive = activeGoal === t.idx;
+                const hasSubtasks = t.subtasks.length > 0;
+                return (
+                  <button key={t.idx} onClick={() => setActiveGoal(isActive ? null : t.idx)}
+                    style={{ width: "100%", padding: "6px 8px", border: "none", borderBottom: "1px solid var(--color-border-tertiary)", background: isActive ? `${DOMAIN_COLORS[domain]}15` : "var(--color-background-secondary)", color: "var(--color-text-primary)", fontSize: 10, fontFamily: "inherit", cursor: "pointer", textAlign: "right", display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ flex: 1, fontWeight: isActive ? 600 : 400 }}>{t.entryName?.split(" - ")[1] || t.entryName?.slice(0, 12)}</span>
+                    {hasSubtasks && <span style={{ fontSize: 8, padding: "1px 4px", borderRadius: 4, background: `${BRAND.gold}20`, color: BRAND.gold, fontWeight: 600 }}>{t.subtasks.length}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
-      <FBox>
-        <div style={{ fontSize: 13, fontWeight: 600, color: BRAND.navy, marginBottom: 4 }}>{current.entryName}</div>
-        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10, lineHeight: 1.6 }}>{current.goal}</div>
+      {current && (
+        <FBox>
+          <div style={{ fontSize: 13, fontWeight: 600, color: BRAND.navy, marginBottom: 2 }}>{current.entryName}</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginBottom: 10, lineHeight: 1.6 }}>{current.goal}</div>
 
-        {current.subtasks.map((s, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}>
-            <div style={{ flex: 1, fontSize: 12, color: "var(--color-text-primary)" }}>{s.text}</div>
-            <select value={s.day} onChange={e => setDay(i, e.target.value)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--color-border-tertiary)", fontFamily: "inherit", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
-              <option value="">يوم؟</option>
-              {DAYS.map(d => <option key={d} value={d} disabled={dayCount(d) >= 7}>{d}</option>)}
-            </select>
-            <button onClick={() => removeTask(i)} style={{ background: "none", border: "none", color: "#A32D2D", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
+          {current.subtasks.map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, padding: "6px 8px", borderRadius: 6, background: "var(--color-background-primary)", border: "1px solid var(--color-border-tertiary)" }}>
+              <div style={{ flex: 1, fontSize: 12, color: "var(--color-text-primary)" }}>{s.text}</div>
+              <select value={s.day} onChange={ev => setDay(i, ev.target.value)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--color-border-tertiary)", fontFamily: "inherit", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }}>
+                <option value="">يوم؟</option>
+                {DAYS.map(d => <option key={d} value={d} disabled={dayCount(d) >= 7}>{d}</option>)}
+              </select>
+              <button onClick={() => removeTask(i)} style={{ background: "none", border: "none", color: "#A32D2D", cursor: "pointer", fontSize: 12, padding: 2 }}>✕</button>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <input value={newTask} onChange={ev => setNewTask(ev.target.value)} placeholder="اكتب مهمة جديدة..." onKeyDown={ev => ev.key === "Enter" && addTask(newTask)}
+              style={{ flex: 1, borderRadius: 8, border: "1px solid var(--color-border-tertiary)", padding: "8px 10px", fontSize: 12, fontFamily: "inherit", direction: "rtl", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
+            <button onClick={() => addTask(newTask)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: BRAND.navy, color: BRAND.gold, fontSize: 11, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>إضافة</button>
           </div>
-        ))}
+          <button onClick={suggestTasks} style={{ width: "100%", marginTop: 8, padding: "8px 0", borderRadius: 8, border: `1px dashed ${BRAND.gold}`, background: "transparent", color: BRAND.gold, fontSize: 11, fontFamily: "inherit", cursor: "pointer" }}>اقتراح مهام تلقائية</button>
+        </FBox>
+      )}
 
-        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-          <input value={newTask} onChange={e => setNewTask(e.target.value)} placeholder="اكتب مهمة جديدة..." onKeyDown={e => e.key === "Enter" && addTask(newTask)}
-            style={{ flex: 1, borderRadius: 8, border: "1px solid var(--color-border-tertiary)", padding: "8px 10px", fontSize: 12, fontFamily: "inherit", direction: "rtl", background: "var(--color-background-primary)", color: "var(--color-text-primary)" }} />
-          <button onClick={() => addTask(newTask)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: BRAND.navy, color: BRAND.gold, fontSize: 11, fontWeight: 600, fontFamily: "inherit", cursor: "pointer" }}>إضافة</button>
-        </div>
-        <button onClick={suggestTasks} style={{ width: "100%", marginTop: 8, padding: "8px 0", borderRadius: 8, border: `1px dashed ${BRAND.gold}`, background: "transparent", color: BRAND.gold, fontSize: 11, fontFamily: "inherit", cursor: "pointer" }}>اقتراح مهام تلقائية</button>
-      </FBox>
+      {!current && <div style={{ textAlign: "center", padding: "20px 0", color: "var(--color-text-tertiary)", fontSize: 12 }}>اضغط على أى نقطة قوة لتقسيم هدفها لمهام</div>}
 
       <BtnPrimary onClick={() => onSave(tasks)} disabled={tasks.every(t => t.subtasks.length === 0)}>حفظ المهام والبدء بالمتابعة ✓</BtnPrimary>
     </Wrap>
